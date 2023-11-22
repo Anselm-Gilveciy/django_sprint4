@@ -28,6 +28,11 @@ def index(request):
     return render(request, template_name, context)
 
 
+def profile(request):
+    template_name = 'blog/profile.html'
+    return render(request, template_name)
+
+
 def post_detail(request, id):
     template_name = 'blog/detail.html'
     detail = get_object_or_404(
@@ -56,3 +61,8 @@ def category_posts(request, category_slug):
         'category': category
     }
     return render(request, template_name, context)
+
+
+def create_post(request):
+    template_name = 'blog/create.html'
+    return render(request, template_name)
