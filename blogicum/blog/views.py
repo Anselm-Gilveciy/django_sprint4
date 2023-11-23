@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -17,13 +18,29 @@ PAGIN = 10
 User = get_user_model()
 
 
-class UserDetailView(DetailView):
-    model = User
+class Edit(ListView):
+    pass
+
+
+class UserDetailView(ListView):
+    model = Post
+    fields = '__all__'
     template_name = 'blog/profile.html'
 
-    def get_context_data(self, *, object_list=None, **kwargs):
+    def get_object(self):
+        return get_object_or_404(
+            User,
+            username=self.kwargs['username']
+        )
+
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['profile'] = self.get_object()
         return context
+
+    def get_queryset(self):
+        return Post.objects.filter(author__username=self.kwargs.get("username"))
+
 
 
 def get_object_or():
@@ -60,12 +77,15 @@ class HomeListView(ListView):
         ).order_by('-pub_date')
 
 
-# @login_required
 class PostCreateView(LoginRequiredMixin, CreateView):
     model = Post
     template_name = 'blog/create.html'
     form_class = PostForm
-    success_url = reverse_lazy('blog:index')
+    success_url = reverse_lazy('blog:profile')
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
 
 
 def profile(request):
@@ -88,16 +108,6 @@ class PostDetailView(DetailView):
             self.object.comments.select_related('author')
         )
         return context
-
-
-# def post_detail(request, id):
-#     template_name = 'blog/detail.html'
-#     detail = get_object_or_404(
-#         get_object_or(),
-#         pk=id
-#     )
-#     context = {'post': detail}
-#     return render(request, template_name, context)
 
 
 def category_posts(request, category_slug):
@@ -145,18 +155,11 @@ def category_posts(request, category_slug):
 
 @login_required
 def add_comment(request, pk):
-    # Получаем объект дня рождения или выбрасываем 404 ошибку.
     post = get_object_or_404(Post, pk=pk)
-    # Функция должна обрабатывать только POST-запросы.
     form = CommentForm(request.POST)
     if form.is_valid():
-        # Создаём объект поздравления, но не сохраняем его в БД.
         comment = form.save(commit=False)
-        # В поле author передаём объект автора поздравления.
         comment.author = request.user
-        # В поле birthday передаём объект дня рождения.
         comment.comment = comment
-        # Сохраняем объект в БД.
         comment.save()
-    # Перенаправляем пользователя назад, на страницу дня рождения.
     return redirect('blog:detail', pk=pk)
