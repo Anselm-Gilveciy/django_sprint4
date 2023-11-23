@@ -91,3 +91,17 @@ class Post(BoolDateModel):
 
     def __str__(self):
         return self.title[:TITLE_LENGTH]
+
+
+class Comment(models.Model):
+    text = models.TextField('Комментарий')
+    comment = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='comments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    class Meta:
+        ordering = ('created_at',)
