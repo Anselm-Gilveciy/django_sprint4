@@ -84,6 +84,11 @@ class Post(BoolDateModel):
         on_delete=models.SET_NULL,
         null=True
     )
+    image = models.ImageField(
+        'Фото',
+        upload_to='post_images',
+        blank=True
+    )
 
     class Meta:
         verbose_name = 'публикация'
@@ -95,7 +100,7 @@ class Post(BoolDateModel):
 
 class Comment(models.Model):
     text = models.TextField('Комментарий')
-    comment = models.ForeignKey(
+    post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
         related_name='comments',
