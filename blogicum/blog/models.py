@@ -110,3 +110,9 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ('created_at',)
+
+    def __str__(self):
+        return (
+            f'{self.post}, {self.author}, '
+            f'{self.text[:30]}'
+        )

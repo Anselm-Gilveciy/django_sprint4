@@ -1,21 +1,9 @@
-from django.shortcuts import render
+from django.views.generic import TemplateView
 
 
-def about(request):
-    """Функция для вызова страницы О проекте."""
+class AboutTemplateView(TemplateView):
     template_name = 'pages/about.html'
-    title = 'Блогикум - Подробнее'
-    context = {
-        'title': title,
-    }
-    return render(request, template_name, context)
 
 
-def rules(request):
-    """Функция для вызова страницы Наши правила."""
+class RulesTemplateView(TemplateView):
     template_name = 'pages/rules.html'
-    title = 'Блогикум - Правила'
-    context = {
-        'title': title,
-    }
-    return render(request, template_name, context)
