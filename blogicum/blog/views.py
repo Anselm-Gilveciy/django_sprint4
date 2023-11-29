@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count
-from django.shortcuts import get_object_or_404
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
@@ -124,66 +125,65 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 class PostDetailView(DetailView):
     model = Post
     template_name = 'blog/detail.html'
+    pk_url_kwarg = 'id'
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = CommentForm()
-        context['comments'] = (
-            self.object.comments.select_related('author')
+        post = get_object_or_404(
+            self.model,
+            id=self.kwargs[self.pk_url_kwarg]
         )
-        return context
+        if post.author != self.request.user:
+            if not (post.is_published
+                    and post.category.is_published
+                    and post.pub_date <= timezone.now()):
+                raise Http404('Нет такого поста')
+        return dict(
+            **super().get_context_data(**kwargs),
+            comments=post.comments.select_related('author'),
+            form=CommentForm()
+        )
 
 
 class PostUpdateView(LoginRequiredMixin, UpdateView):
     model = Post
     template_name = 'blog/create.html'
     form_class = PostForm
+    pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs['pk'], author=request.user)
+        instance = get_object_or_404(Post, id=kwargs[self.pk_url_kwarg])
+
+        if instance.author != request.user:
+            return redirect(self.get_success_url())
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
-        return reverse_lazy(
+        return reverse(
             'blog:post_detail',
-            kwargs={'post_id': self.kwargs['post_id']}
-        )
-
-
-class CommentUpdateView(LoginRequiredMixin, UpdateView):
-    model = Comment
-    template_name = 'blog/create.html'
-    form_class = CommentForm
-
-    def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs['pk'], author=request.user)
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_success_url(self):
-        return reverse_lazy(
-            'blog:post_detail',
-            kwargs={'post_id': self.kwargs['post_id']}
+            kwargs={'id': self.kwargs[self.pk_url_kwarg]}
         )
 
 
 class PostDeleteView(LoginRequiredMixin, DeleteView):
     model = Post
     template_name = 'blog/create.html'
+    form_class = PostForm
+    pk_url_kwarg = 'post_id'
     success_url = reverse_lazy('blog:index')
 
     def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs['pk'], author=request.user)
+        instanse = get_object_or_404(
+            Post,
+            id=kwargs[self.pk_url_kwarg])
+        if instanse.author != request.user:
+            return redirect('blog:index')
         return super().dispatch(request, *args, **kwargs)
 
-
-class CommentDeleteView(LoginRequiredMixin, DeleteView):
-    model = Comment
-    template_name = 'blog/comment.html'
-    success_url = reverse_lazy('blog:index')
-
-    def dispatch(self, request, *args, **kwargs):
-        get_object_or_404(Post, pk=kwargs['pk'], author=request.user)
-        return super().dispatch(request, *args, **kwargs)
+    def get_context_data(self, **kwargs):
+        return dict(
+            **super().get_context_data(**kwargs),
+            form=self.form_class(instance=self.object)
+        )
 
 
 class CategoryListView(ListView):
@@ -217,14 +217,14 @@ class CategoryListView(ListView):
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
-    object = None
     model = Comment
     form_class = CommentForm
-    pk_url_kwarg = 'post_id'
     template_name = 'blog/comment.html'
+    pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
-        self.post_object = get_object_or_404(Post, pk=kwargs[self.pk_url_kwargs])
+        self.post_object = get_object_or_404(
+            Post, id=self.kwargs[self.pk_url_kwarg])
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -233,5 +233,29 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse('blog:post_detail',
-                       kwargs={'post_id': self.kwargs[self.pk_url_kwarg]})
+        return reverse_lazy(
+            'blog:post_detail', kwargs={'id': self.kwargs[self.pk_url_kwarg]})
+
+
+class CommentMixin(LoginRequiredMixin):
+    model = Comment
+    form_class = CommentForm
+    template_name = 'blog/comment.html'
+    success_url = reverse_lazy('blog:index')
+    pk_url_kwarg = 'comment_id'
+
+    def dispatch(self, request, *args, **kwargs):
+        instance = get_object_or_404(
+            Comment, pk=kwargs['comment_id'])
+
+        if instance.author != request.user:
+            return redirect('blog:index')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CommentDeleteView(CommentMixin, DeleteView):
+    """Delete a comment."""
+
+
+class CommentUpdateView(CommentMixin, UpdateView):
+    """Update a comment."""

@@ -1,5 +1,6 @@
 from django.urls import path
-
+from django.conf import settings
+from django.conf.urls.static import static
 from . import views
 
 app_name = 'blog'
@@ -21,22 +22,22 @@ urlpatterns = [
         name='create_post'
     ),
     path(
-        'posts/<int:pk>/edit/',
+        'posts/<int:post_id>/edit/',
         views.PostUpdateView.as_view(),
         name='edit_post'
     ),
     path(
-        'posts/<int:pk>/edit_comment/<comment_id>/',
+        'posts/<int:post_id>/edit_comment/<int:comment_id>/',
         views.CommentUpdateView.as_view(),
         name='edit_comment'
     ),
     path(
-        'posts/<int:pk>/delete_comment/<comment_id>/',
+        'posts/<int:post_id>/delete_comment/<int:comment_id>/',
         views.CommentDeleteView.as_view(),
         name='delete_comment'
     ),
     path(
-        'posts/<int:pk>/delete/',
+        'posts/<int:post_id>/delete/',
         views.PostDeleteView.as_view(),
         name='delete_post'
     ),
@@ -51,11 +52,11 @@ urlpatterns = [
         name='profile'
     ),
     path(
-        'posts/<int:pk>/',
+        'posts/<int:id>/',
         views.PostDetailView.as_view(),
         name='post_detail'
     ),
     path('category/<slug:slugname>/',
          views.CategoryListView.as_view(),
          name='category_posts'),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

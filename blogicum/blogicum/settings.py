@@ -13,7 +13,6 @@ ALLOWED_HOSTS = [
 
 INSTALLED_APPS = [
     'django_bootstrap5',
-    'core',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -99,12 +98,12 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
+CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
 
 LOGIN_REDIRECT_URL = 'blog:index'
 
 MEDIA_ROOT = BASE_DIR / 'media'
 
-EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+EMAIL_BACKEND = 'django.pages.mail.backends.filebased.EmailBackend'
 
 EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
