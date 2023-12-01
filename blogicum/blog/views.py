@@ -11,14 +11,13 @@ from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
 from .forms import CommentForm, PostForm, UserCreateForm
 from .models import Category, Comment, Post
 
-PUB_DATE = 5
-PAGINAT = 10
+PAGINATION_OF_POSTS = 10
 
 User = get_user_model()
 
 
-def get_object_or():
-    code = Post.objects.select_related(
+def select_posts():
+    return Post.objects.select_related(
         'author',
         'category',
         'location'
@@ -27,7 +26,6 @@ def get_object_or():
         is_published=True,
         category__is_published=True
     )
-    return code
 
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
@@ -56,7 +54,7 @@ def get_query_all_posts(model):
 class UserDetailView(ListView):
     model = Post
     author = None
-    paginate_by = 10
+    paginate_by = PAGINATION_OF_POSTS
     queryset = get_query_all_posts(model.objects)
     slug_url_kwargs = 'username'
     template_name = 'blog/profile.html'
@@ -84,27 +82,18 @@ class HomeListView(ListView):
     model = Post
     template_name = 'blog/index.html'
     context_object_name = 'post_list'
-    paginate_by = PAGINAT
+    paginate_by = PAGINATION_OF_POSTS
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
         return context
 
     def get_queryset(self):
-        return Post.objects.prefetch_related(
-            'location',
-            'category',
-            'author',
-        ).filter(
-            pub_date__date__lte=timezone.now(),
-            is_published=True,
-            category__is_published=True
+        return select_posts(
         ).order_by(
             '-pub_date'
         ).annotate(
             comment_count=Count('comments')
-        ).order_by(
-            '-pub_date'
         )
 
 
@@ -190,27 +179,22 @@ class CategoryListView(ListView):
     template_name = 'blog/category.html'
     model = Post
     context_object_name = 'category_list'
-    paginate_by = PAGINAT
+    paginate_by = PAGINATION_OF_POSTS
 
     def get_queryset(self):
         self.category = get_object_or_404(
             Category,
-            slug=self.kwargs['slugname'],
+            slug=self.kwargs['category_slug'],
             is_published=True
         )
-        queryset = Post.objects.filter(
-            category_id=self.category.pk,
-            pub_date__date__lte=timezone.now(),
-            is_published=True,
-            category__is_published=True
-        ).annotate(comment_count=Count('comments')).order_by('-pub_date')
+        queryset = select_posts()
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['category'] = get_object_or_404(
             Category,
-            slug=self.kwargs['slugname'],
+            slug=self.kwargs['category_slug'],
             is_published=True,
         )
         return context

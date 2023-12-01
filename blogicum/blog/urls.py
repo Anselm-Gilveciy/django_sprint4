@@ -56,7 +56,7 @@ urlpatterns = [
         views.PostDetailView.as_view(),
         name='post_detail'
     ),
-    path('category/<slug:slugname>/',
+    path('category/<slug:category_slug>/',
          views.CategoryListView.as_view(),
          name='category_posts'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
