@@ -16,19 +16,29 @@ PAGINATION_OF_POSTS = 10
 User = get_user_model()
 
 
-def select_posts():
-    return Post.objects.select_related(
-        'author',
+def get_query_all_posts(model):
+    """Получение списка постов."""
+    return model.select_related(
         'category',
-        'location'
-    ).filter(
-        pub_date__lte=timezone.datetime.now(),
+        'location',
+        'author'
+    ).annotate(
+        comment_count=Count('comments')
+    ).order_by('-pub_date')
+
+
+def select_published_post(model):
+    """Выбор постов с отметкой 'Опубликовано'."""
+    return get_query_all_posts(model).filter(
+        pub_date__lte=timezone.now(),
         is_published=True,
         category__is_published=True
     )
 
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
+    """Редактирование профиля пользователя."""
+
     model = User
     form_class = UserCreateForm
     template_name = 'blog/user.html'
@@ -41,17 +51,9 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         return reverse('blog:profile', kwargs={'username': username})
 
 
-def get_query_all_posts(model):
-    return model.select_related(
-        'category',
-        'location',
-        'author'
-    ).annotate(
-        comment_count=Count('comments')
-    ).order_by('-pub_date')
-
-
 class UserDetailView(ListView):
+    """Информация о пользователе (профиль пользователя)."""
+
     model = Post
     author = None
     paginate_by = PAGINATION_OF_POSTS
@@ -66,9 +68,10 @@ class UserDetailView(ListView):
         )
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['profile'] = self.get_object()
-        return context
+        return dict(
+            **super().get_context_data(**kwargs),
+            profile=self.get_object()
+        )
 
     def get_queryset(self):
         self.author = self.get_object()
@@ -79,25 +82,22 @@ class UserDetailView(ListView):
 
 
 class HomeListView(ListView):
+    """Главная страница."""
+
     model = Post
     template_name = 'blog/index.html'
+    ordering = '-created_at'
     context_object_name = 'post_list'
     paginate_by = PAGINATION_OF_POSTS
-
-    def get_context_data(self, *, object_list=None, **kwargs):
-        context = super().get_context_data(**kwargs)
-        return context
+    queryset = select_published_post(model.objects)
 
     def get_queryset(self):
-        return select_posts(
-        ).order_by(
-            '-pub_date'
-        ).annotate(
-            comment_count=Count('comments')
-        )
+        return self.queryset
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):
+    """Создание поста."""
+
     model = Post
     template_name = 'blog/create.html'
     form_class = PostForm
@@ -112,6 +112,8 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
 
 class PostDetailView(DetailView):
+    """Просмотр поста в отдельной странице."""
+
     model = Post
     template_name = 'blog/detail.html'
     pk_url_kwarg = 'id'
@@ -134,6 +136,8 @@ class PostDetailView(DetailView):
 
 
 class PostUpdateView(LoginRequiredMixin, UpdateView):
+    """Редактирование поста."""
+
     model = Post
     template_name = 'blog/create.html'
     form_class = PostForm
@@ -154,6 +158,8 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
 
 
 class PostDeleteView(LoginRequiredMixin, DeleteView):
+    """Удаление поста."""
+
     model = Post
     template_name = 'blog/create.html'
     form_class = PostForm
@@ -176,6 +182,8 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
 
 
 class CategoryListView(ListView):
+    """Посты из отдельной категории."""
+
     template_name = 'blog/category.html'
     model = Post
     context_object_name = 'category_list'
@@ -187,8 +195,7 @@ class CategoryListView(ListView):
             slug=self.kwargs['category_slug'],
             is_published=True
         )
-        queryset = select_posts()
-        return queryset
+        return select_published_post(self.category.posts)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -201,6 +208,8 @@ class CategoryListView(ListView):
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
+    """Создание комментария."""
+
     model = Comment
     form_class = CommentForm
     template_name = 'blog/comment.html'
@@ -222,6 +231,8 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
 
 
 class CommentMixin(LoginRequiredMixin):
+    """Миксин для комментариев."""
+
     model = Comment
     form_class = CommentForm
     template_name = 'blog/comment.html'
@@ -230,7 +241,7 @@ class CommentMixin(LoginRequiredMixin):
 
     def dispatch(self, request, *args, **kwargs):
         instance = get_object_or_404(
-            Comment, pk=kwargs['comment_id'])
+            Comment, pk=kwargs[self.pk_url_kwarg])
 
         if instance.author != request.user:
             return redirect('blog:index')
@@ -238,8 +249,8 @@ class CommentMixin(LoginRequiredMixin):
 
 
 class CommentDeleteView(CommentMixin, DeleteView):
-    """Delete a comment."""
+    """Удаление комментария."""
 
 
 class CommentUpdateView(CommentMixin, UpdateView):
-    """Update a comment."""
+    """Изменение комментария."""

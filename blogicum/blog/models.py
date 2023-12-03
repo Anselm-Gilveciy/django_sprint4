@@ -3,10 +3,11 @@ from django.db import models
 
 User = get_user_model()
 
-TITLE_LENGTH = 25
+SECTION = 25
+TITLES_LENGTH = 256
 
 
-class BoolDateModel(models.Model):
+class CreatedAtIsPublishedModel(models.Model):
     is_published = models.BooleanField(default=True,
                                        verbose_name='Опубликовано',
                                        help_text=(
@@ -20,8 +21,8 @@ class BoolDateModel(models.Model):
         abstract = True
 
 
-class Category(BoolDateModel):
-    title = models.CharField('Заголовок', max_length=256)
+class Category(CreatedAtIsPublishedModel):
+    title = models.CharField('Заголовок', max_length=TITLES_LENGTH)
     description = models.TextField(verbose_name='Описание')
     slug = models.SlugField(
         unique=True,
@@ -38,13 +39,13 @@ class Category(BoolDateModel):
         verbose_name_plural = 'Категории'
 
     def __str__(self):
-        return self.title[:TITLE_LENGTH]
+        return self.title[:SECTION]
 
 
-class Location(BoolDateModel):
+class Location(CreatedAtIsPublishedModel):
     name = models.CharField(
         'Название места',
-        max_length=256,
+        max_length=TITLES_LENGTH,
     )
 
     class Meta:
@@ -52,11 +53,11 @@ class Location(BoolDateModel):
         verbose_name_plural = 'Местоположения'
 
     def __str__(self):
-        return self.name[:TITLE_LENGTH]
+        return self.name[:SECTION]
 
 
-class Post(BoolDateModel):
-    title = models.CharField('Название', max_length=256)
+class Post(CreatedAtIsPublishedModel):
+    title = models.CharField('Название', max_length=TITLES_LENGTH)
     text = models.TextField('Текст')
     pub_date = models.DateTimeField(
         verbose_name='Дата и время публикации',
@@ -69,18 +70,20 @@ class Post(BoolDateModel):
         User,
         verbose_name='Автор публикации',
         on_delete=models.CASCADE,
-        related_name='Posts',
+        related_name='posts',
     )
     location = models.ForeignKey(
         Location,
         verbose_name='Местоположение',
         on_delete=models.SET_NULL,
         null=True,
-        blank=True
+        blank=True,
+        related_name='posts',
     )
     category = models.ForeignKey(
         Category,
         verbose_name='Категория',
+        related_name='posts',
         on_delete=models.SET_NULL,
         null=True
     )
@@ -95,7 +98,7 @@ class Post(BoolDateModel):
         verbose_name_plural = 'Публикации'
 
     def __str__(self):
-        return self.title[:TITLE_LENGTH]
+        return self.title[:SECTION]
 
 
 class Comment(models.Model):

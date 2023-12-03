@@ -1,6 +1,5 @@
 from django.urls import path
-from django.conf import settings
-from django.conf.urls.static import static
+
 from . import views
 
 app_name = 'blog'
@@ -59,4 +58,4 @@ urlpatterns = [
     path('category/<slug:category_slug>/',
          views.CategoryListView.as_view(),
          name='category_posts'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
