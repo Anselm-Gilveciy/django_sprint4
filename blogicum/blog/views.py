@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
@@ -57,7 +57,6 @@ class UserDetailView(ListView):
     model = Post
     author = None
     paginate_by = PAGINATION_OF_POSTS
-    queryset = get_query_all_posts(model.objects)
     slug_url_kwargs = 'username'
     template_name = 'blog/profile.html'
 
@@ -82,17 +81,14 @@ class UserDetailView(ListView):
 
 
 class HomeListView(ListView):
-    """Главная страница."""
-
     model = Post
     template_name = 'blog/index.html'
     ordering = '-created_at'
-    context_object_name = 'post_list'
     paginate_by = PAGINATION_OF_POSTS
-    queryset = select_published_post(model.objects)
+    # queryset = select_published_post(model.objects)
 
     def get_queryset(self):
-        return self.queryset
+        return select_published_post(self.model.objects)
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):
@@ -135,7 +131,7 @@ class PostDetailView(DetailView):
         )
 
 
-class PostUpdateView(LoginRequiredMixin, UpdateView):
+class PostUpdateView(UserPassesTestMixin, UpdateView):
     """Редактирование поста."""
 
     model = Post
@@ -143,18 +139,18 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
     form_class = PostForm
     pk_url_kwarg = 'post_id'
 
-    def dispatch(self, request, *args, **kwargs):
-        instance = get_object_or_404(Post, id=kwargs[self.pk_url_kwarg])
-
-        if instance.author != request.user:
-            return redirect(self.get_success_url())
-        return super().dispatch(request, *args, **kwargs)
-
     def get_success_url(self):
         return reverse(
             'blog:post_detail',
             kwargs={'id': self.kwargs[self.pk_url_kwarg]}
         )
+
+    def test_func(self):
+        self.object = self.get_object()
+        return self.request.user == self.object.author
+
+    def handle_no_permission(self):
+        return redirect(self.get_success_url())
 
 
 class PostDeleteView(LoginRequiredMixin, DeleteView):

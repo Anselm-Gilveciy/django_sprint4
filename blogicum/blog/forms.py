@@ -11,7 +11,8 @@ class PostForm(forms.ModelForm):
         widgets = {
             'text': forms.Textarea({'cols': '22', 'rows': '5'}),
             'pub_date': forms.DateTimeInput(
-                attrs={'type': 'datetime-local', 'class': 'form'}
+                format='%d.%B.%Y, %H:%M',
+                attrs={'type': 'datetime-local', 'class': 'form'},
             )
         }
 

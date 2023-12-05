@@ -3,8 +3,11 @@ from django.db import models
 
 User = get_user_model()
 
-SECTION = 25
-TITLES_LENGTH = 256
+MAX_LENGTH_CHAR_FIELD = 256
+"""Maximum char field length in model"""
+
+MAX_LENGTH_CHAR_FIELD_COMMENT = 25
+"""Maximum char field length in model for comment"""
 
 
 class CreatedAtIsPublishedModel(models.Model):
@@ -22,7 +25,7 @@ class CreatedAtIsPublishedModel(models.Model):
 
 
 class Category(CreatedAtIsPublishedModel):
-    title = models.CharField('Заголовок', max_length=TITLES_LENGTH)
+    title = models.CharField('Заголовок', max_length=MAX_LENGTH_CHAR_FIELD)
     description = models.TextField(verbose_name='Описание')
     slug = models.SlugField(
         unique=True,
@@ -39,13 +42,13 @@ class Category(CreatedAtIsPublishedModel):
         verbose_name_plural = 'Категории'
 
     def __str__(self):
-        return self.title[:SECTION]
+        return self.title[:MAX_LENGTH_CHAR_FIELD_COMMENT]
 
 
 class Location(CreatedAtIsPublishedModel):
     name = models.CharField(
         'Название места',
-        max_length=TITLES_LENGTH,
+        max_length=MAX_LENGTH_CHAR_FIELD,
     )
 
     class Meta:
@@ -53,11 +56,11 @@ class Location(CreatedAtIsPublishedModel):
         verbose_name_plural = 'Местоположения'
 
     def __str__(self):
-        return self.name[:SECTION]
+        return self.name[:MAX_LENGTH_CHAR_FIELD_COMMENT]
 
 
 class Post(CreatedAtIsPublishedModel):
-    title = models.CharField('Название', max_length=TITLES_LENGTH)
+    title = models.CharField('Название', max_length=MAX_LENGTH_CHAR_FIELD)
     text = models.TextField('Текст')
     pub_date = models.DateTimeField(
         verbose_name='Дата и время публикации',
@@ -98,7 +101,7 @@ class Post(CreatedAtIsPublishedModel):
         verbose_name_plural = 'Публикации'
 
     def __str__(self):
-        return self.title[:SECTION]
+        return self.title[:MAX_LENGTH_CHAR_FIELD_COMMENT]
 
 
 class Comment(models.Model):
