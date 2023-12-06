@@ -102,7 +102,7 @@ CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
 
 LOGIN_REDIRECT_URL = 'blog:index'
 
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = BASE_DIR / 'media/'
 
 EMAIL_BACKEND = 'django.pages.mail.backends.filebased.EmailBackend'
 
