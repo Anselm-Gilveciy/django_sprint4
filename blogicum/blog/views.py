@@ -15,20 +15,9 @@ PAGINATION_OF_POSTS = 10
 User = get_user_model()
 
 
-def get_query_all_posts(model):
+def get_filtered_posts(posts):
     """Получение списка постов."""
-    return model.select_related(
-        'category',
-        'location',
-        'author'
-    ).annotate(
-        comment_count=Count('comments')
-    ).order_by('-pub_date')
-
-
-def get_filtered_post(model):
-    """Получение списка постов."""
-    return model.select_related(
+    return posts.select_related(
         'category',
         'location',
         'author'
@@ -40,6 +29,7 @@ def get_filtered_post(model):
 
 
 def get_comment_count(queryset):
+    """Аннотация комментариев к постам."""
     return queryset.annotate(
         comment_count=Count('comments')
     ).order_by('-pub_date')
@@ -64,7 +54,6 @@ class UserDetailView(ListView):
     """Информация о пользователе (профиль пользователя)."""
 
     model = Post
-    author = None
     paginate_by = PAGINATION_OF_POSTS
     slug_url_kwargs = 'username'
     template_name = 'blog/profile.html'
@@ -82,27 +71,25 @@ class UserDetailView(ListView):
         )
 
     def get_queryset(self):
-        self.author = self.get_object()
-        if self.author == self.request.user:
-            return get_query_all_posts(
-                self.model.objects
-            ).filter(
-                author=self.author
-            )
-        query_set = get_filtered_post(self.model.objects)
-        return get_comment_count(query_set).filter(
-            author=self.author)
+        author = self.get_object()
+        posts = get_comment_count(author.posts)
+        if author == self.request.user:
+            return posts.filter(author=author)
+        return get_filtered_posts(posts)
 
 
 class HomeListView(ListView):
+    """Главная страница."""
+
     model = Post
     template_name = 'blog/index.html'
     ordering = '-created_at'
     paginate_by = PAGINATION_OF_POSTS
 
     def get_queryset(self):
-        query_set = get_filtered_post(self.model.objects)
-        return get_comment_count(query_set)
+        return get_comment_count(
+            get_filtered_posts(self.model.objects)
+        )
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):
@@ -117,7 +104,7 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        username = self.request.user
+        username = self.request.user.username
         return reverse('blog:profile', kwargs={'username': username})
 
 
@@ -135,11 +122,8 @@ class PostDetailView(DetailView):
         )
         if post.author != self.request.user:
             post = get_object_or_404(
-                Post,
+                get_filtered_posts(self.model.objects),
                 pk=self.kwargs[self.pk_url_kwarg],
-                is_published=True,
-                category__is_published=True,
-                pub_date__lt=timezone.now(),
             )
         return post
 
@@ -198,22 +182,21 @@ class CategoryListView(ListView):
     slug_url_kwarg = 'category_slug'
     paginate_by = PAGINATION_OF_POSTS
 
-    def get_queryset(self):
-        category = get_object_or_404(
+    def get_category_or_404(self):
+        return get_object_or_404(
             Category,
             slug=self.kwargs[self.slug_url_kwarg],
             is_published=True
         )
-        query_set = get_filtered_post(category.posts)
-        return get_comment_count(query_set)
+
+    def get_queryset(self):
+        category = self.get_category_or_404()
+        return get_comment_count(get_filtered_posts(category.posts))
 
     def get_context_data(self, **kwargs):
         return dict(
             **super().get_context_data(**kwargs),
-            category=get_object_or_404(
-                Category,
-                slug=self.kwargs[self.slug_url_kwarg],
-                is_published=True),
+            category=self.get_category_or_404()
         )
 
 

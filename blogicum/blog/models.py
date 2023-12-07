@@ -4,10 +4,8 @@ from django.db import models
 User = get_user_model()
 
 TITLES_LENGTH = 256
-"""Максимальная длина названия модели."""
 
 VISIBLE_TITLES_LENGTH = 25
-"""Длина содержания для отображения в админ-панели."""
 
 
 class CreatedAtIsPublishedModel(models.Model):
