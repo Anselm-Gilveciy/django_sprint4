@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -28,9 +29,9 @@ def get_filtered_posts(posts):
     )
 
 
-def get_comment_count(queryset):
+def get_comment_count(posts):
     """Аннотация комментариев к постам."""
-    return queryset.annotate(
+    return posts.annotate(
         comment_count=Count('comments')
     ).order_by('-pub_date')
 
@@ -74,7 +75,7 @@ class UserDetailView(ListView):
         author = self.get_object()
         posts = get_comment_count(author.posts)
         if author == self.request.user:
-            return posts.filter(author=author)
+            return posts
         return get_filtered_posts(posts)
 
 
@@ -116,16 +117,20 @@ class PostDetailView(DetailView):
     pk_url_kwarg = 'id'
 
     def get_object(self):
-        post = get_object_or_404(
-            Post,
-            pk=self.kwargs[self.pk_url_kwarg]
+        queryset = self.model.objects.select_related(
+            'category', 'location', 'author')
+        try:
+            post = self.model.objects.get(pk=self.kwargs[self.pk_url_kwarg])
+
+            if post.author != self.request.user:
+                queryset = get_filtered_posts(queryset)
+        except Exception:
+            raise Http404
+
+        return get_object_or_404(
+            queryset,
+            id=self.kwargs[self.pk_url_kwarg]
         )
-        if post.author != self.request.user:
-            post = get_object_or_404(
-                get_filtered_posts(self.model.objects),
-                pk=self.kwargs[self.pk_url_kwarg],
-            )
-        return post
 
     def get_context_data(self, **kwargs):
         return dict(
@@ -135,17 +140,20 @@ class PostDetailView(DetailView):
         )
 
 
-class PostUpdateDeleteMixin(UserPassesTestMixin):
+class MixinPostComment():
+
+    def test_func(self):
+        self.object = self.get_object()
+        return self.request.user == self.object.author
+
+
+class PostUpdateDeleteMixin(MixinPostComment, UserPassesTestMixin):
     """Миксин для удаления и редактирования публикации."""
 
     model = Post
     template_name = 'blog/create.html'
     form_class = PostForm
     pk_url_kwarg = 'post_id'
-
-    def test_func(self):
-        self.object = self.get_object()
-        return self.request.user == self.object.author
 
     def handle_no_permission(self):
         return redirect(self.get_success_url())
@@ -182,21 +190,22 @@ class CategoryListView(ListView):
     slug_url_kwarg = 'category_slug'
     paginate_by = PAGINATION_OF_POSTS
 
-    def get_category_or_404(self):
-        return get_object_or_404(
+    def get_queryset(self):
+        category = get_object_or_404(
             Category,
             slug=self.kwargs[self.slug_url_kwarg],
             is_published=True
         )
-
-    def get_queryset(self):
-        category = self.get_category_or_404()
-        return get_comment_count(get_filtered_posts(category.posts))
+        query_set = get_filtered_posts(category.posts)
+        return get_comment_count(query_set)
 
     def get_context_data(self, **kwargs):
         return dict(
             **super().get_context_data(**kwargs),
-            category=self.get_category_or_404()
+            category=get_object_or_404(
+                Category,
+                slug=self.kwargs[self.slug_url_kwarg],
+                is_published=True),
         )
 
 
@@ -211,7 +220,9 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.author = self.request.user
         form.instance.post = get_object_or_404(
-            Post, id=self.kwargs[self.pk_url_kwarg])
+            Post,
+            id=self.kwargs[self.pk_url_kwarg]
+        )
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -219,7 +230,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
             'blog:post_detail', kwargs={'id': self.kwargs[self.pk_url_kwarg]})
 
 
-class CommentMixin(LoginRequiredMixin, UserPassesTestMixin):
+class CommentMixin(LoginRequiredMixin, MixinPostComment, UserPassesTestMixin):
     """Миксин для комментариев."""
 
     model = Comment
@@ -227,10 +238,6 @@ class CommentMixin(LoginRequiredMixin, UserPassesTestMixin):
     template_name = 'blog/comment.html'
     success_url = reverse_lazy('blog:index')
     pk_url_kwarg = 'comment_id'
-
-    def test_func(self):
-        self.object = self.get_object()
-        return self.request.user == self.object.author
 
 
 class CommentDeleteView(CommentMixin, DeleteView):
