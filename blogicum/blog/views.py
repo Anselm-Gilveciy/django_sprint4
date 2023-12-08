@@ -140,14 +140,14 @@ class PostDetailView(DetailView):
         )
 
 
-class MixinPostComment():
+class MixinPostComment(UserPassesTestMixin):
 
     def test_func(self):
         self.object = self.get_object()
         return self.request.user == self.object.author
 
 
-class PostUpdateDeleteMixin(MixinPostComment, UserPassesTestMixin):
+class PostUpdateDeleteMixin(MixinPostComment):
     """Миксин для удаления и редактирования публикации."""
 
     model = Post
@@ -230,7 +230,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
             'blog:post_detail', kwargs={'id': self.kwargs[self.pk_url_kwarg]})
 
 
-class CommentMixin(LoginRequiredMixin, MixinPostComment, UserPassesTestMixin):
+class CommentMixin(LoginRequiredMixin, MixinPostComment):
     """Миксин для комментариев."""
 
     model = Comment
