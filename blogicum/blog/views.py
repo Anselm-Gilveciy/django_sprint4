@@ -119,14 +119,9 @@ class PostDetailView(DetailView):
     def get_object(self):
         queryset = self.model.objects.select_related(
             'category', 'location', 'author')
-        try:
-            post = self.model.objects.get(pk=self.kwargs[self.pk_url_kwarg])
-
-            if post.author != self.request.user:
-                queryset = get_filtered_posts(queryset)
-        except Exception:
-            raise Http404
-
+        post = super().get_object(queryset)
+        if post.author != self.request.user:
+            queryset = get_filtered_posts(queryset)
         return get_object_or_404(
             queryset,
             id=self.kwargs[self.pk_url_kwarg]
